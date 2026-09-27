@@ -1,5 +1,7 @@
 package com.baotrung.ai_gateway.controller;
 
+import com.baotrung.ai_gateway.dto.auth.LoginRequest;
+import com.baotrung.ai_gateway.dto.auth.LoginResponse;
 import com.baotrung.ai_gateway.dto.auth.RegisterRequest;
 import com.baotrung.ai_gateway.dto.auth.RegisterResponse;
 import com.baotrung.ai_gateway.service.AuthService;
@@ -27,5 +29,13 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
     }
 }

@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/conversations"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{access_token}}"
+order: 4160480397097805

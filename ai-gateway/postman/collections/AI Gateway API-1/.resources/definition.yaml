@@ -1,0 +1,6 @@
+$kind: collection
+name: AI Gateway API
+variables:
+  base_url: ""
+  access_token: ""
+  conversation_id: ""

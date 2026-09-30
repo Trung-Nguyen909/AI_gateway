@@ -837,42 +837,94 @@ The deployed backend should not depend on the developer machine's local MySQL in
 
 # API Testing
 
-The API can be tested using Postman.
+The API can be tested using Postman or another REST API client.
 
-The recommended test flow is:
+For local development, the base URL is:
+
+```text
+http://localhost:8080
+```
+
+Protected endpoints require a JWT access token:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+## Recommended Test Flow
+
+The recommended API testing flow is:
 
 ```text
 Register
    ↓
 Login
    ↓
-Get JWT
+Receive JWT Access Token
    ↓
 Create Conversation
+   ↓
+Get Conversations
+   ↓
+Get Conversation By ID
    ↓
 AI Chat
    ↓
 Structured AI
    ↓
-Usage Statistics
+Get Usage Statistics
 ```
 
-A Postman collection is provided separately with the project.
+In Postman, the following collection variables can be used to simplify testing:
+
+```text
+base_url        = http://localhost:8080
+access_token    = JWT returned from Login
+conversation_id = ID returned from Create Conversation
+```
+
+For example:
+
+```text
+{{base_url}}/api/v1/ai/chat
+```
+
+The JWT can be used as a Bearer Token:
+
+```text
+{{access_token}}
+```
+
+The conversation ID can be reused in AI Chat requests:
+
+```json
+{
+  "conversationId": {{conversation_id}},
+  "message": "Explain Dependency Injection in Spring Boot.",
+  "model": "gemini-3.5-flash-lite"
+}
+```
+
+Detailed request and response examples for Authentication, Conversations, AI Chat, Structured AI, Usage Statistics, validation, rate limiting, and timeout handling are available here:
+
+[View API Request & Response Examples](docs/API_EXAMPLES.md)
+
+> Note: JWT tokens, API keys, and database passwords should never be committed to the repository.
 
 ---
 
 # Project Deliverables
 
-The project includes:
+The project deliverables include:
 
-- Backend source code
-- API documentation
-- Architecture diagram
-- Database schema
-- Postman API examples
-- Deployment configuration/instructions
-- AI development worklog
-- Demo video
+- **Backend Source Code** — Complete Spring Boot source code for the AI Gateway.
+- **API Documentation** — API endpoints, authentication, request formats, and usage instructions are documented in this README.
+- **API Request & Response Examples** — Detailed testing examples are available in [API Examples](docs/API_EXAMPLES.md).
+- **Architecture Diagram** — System architecture is documented in [Architecture Diagram](docs/Architecture diagram.png).
+- **Database Schema** — Database structure and relationships are documented in [Database Schema](docs/database-schema.png).
+- **AI Development Worklog** — The AI-assisted development process, implementation decisions, debugging, and verification are documented in [AI Development Worklog](AI_WORKLOG.md).
+- **Deployment** — Deployment configuration and public API URL will be added after deployment is completed.
+- **Demo Video** — A short demonstration video will be added after final deployment and testing.
 
 ---
 

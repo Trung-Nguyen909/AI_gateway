@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/ai/structured"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"topic\": \"Dependency Injection in Spring Boot\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{access_token}}"
+order: 80400600660814

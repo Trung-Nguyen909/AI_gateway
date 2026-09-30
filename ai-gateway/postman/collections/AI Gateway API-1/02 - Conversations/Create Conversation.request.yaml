@@ -1,0 +1,33 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/conversations"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"title\": \"Spring Boot Learning\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{access_token}}"
+scripts:
+  - type: afterResponse
+    code: "const response = pm.response.json();\r
+
+      \r
+
+      if (response.id) {\r
+
+      \    pm.collectionVariables.set(\r
+
+      \        \"conversation_id\",\r
+
+      \        response.id\r
+
+      \    );\r
+
+      }"
+    language: text/javascript
+order: 1790790907709

@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/ai/chat"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"conversationId\": {{conversation_id}},\r
+
+    \    \"message\": \"Explain Dependency Injection in Spring Boot.\",\r
+
+    \    \"model\": \"gemini-3.5-flash-lite\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{access_token}}"
+order: 1790791371487

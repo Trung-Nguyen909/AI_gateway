@@ -9,6 +9,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import com.baotrung.ai_gateway.exception.ProviderRateLimitException;
+import com.baotrung.ai_gateway.exception.ProviderTimeoutException;
+
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,15 +28,20 @@ public class GeminiProvider implements LLMProvider {
     private final RestClient geminiRestClient;
     private final String apiKey;
     private final String defaultModel;
+    private final int maxRetries;
+    private static final Logger log =
+            LoggerFactory.getLogger(GeminiProvider.class);
 
     public GeminiProvider(
             @Qualifier("geminiRestClient") RestClient geminiRestClient,
             @Value("${gemini.api-key}") String apiKey,
-            @Value("${gemini.model}") String defaultModel
+            @Value("${gemini.model}") String defaultModel,
+            @Value("${gemini.max-retries}") int maxRetries
     ) {
         this.geminiRestClient = geminiRestClient;
         this.apiKey = apiKey;
         this.defaultModel = defaultModel;
+        this.maxRetries = maxRetries;
     }
 
     @Override
@@ -87,16 +100,10 @@ public class GeminiProvider implements LLMProvider {
                         + model
                         + ":generateContent";
 
-        System.out.println("Gemini model = " + model);
-        System.out.println("Gemini API URL = " + uri);
+        log.info("Calling Gemini model={}", model);
 
-        Map<String, Object> response = geminiRestClient.post()
-                .uri(uri)
-                .header("x-goog-api-key", apiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> response =
+                callGeminiWithRetry(uri, body);
 
         String contentText = extractText(response);
 
@@ -187,5 +194,105 @@ public class GeminiProvider implements LLMProvider {
         }
 
         return 0;
+    }
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> callGeminiWithRetry(
+            String uri,
+            Map<String, Object> body
+    ) {
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+
+            try {
+
+                log.info(
+                        "Gemini request attempt={}/{}",
+                        attempt,
+                        maxRetries
+                );
+
+                return geminiRestClient.post()
+                        .uri(uri)
+                        .header("x-goog-api-key", apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .body(Map.class);
+
+            } catch (RestClientResponseException ex) {
+
+                int statusCode =
+                        ex.getStatusCode().value();
+
+                // 429 = Rate Limit
+                if (statusCode == 429) {
+
+                    if (attempt == maxRetries) {
+                        throw new ProviderRateLimitException(
+                                "Gemini rate limit exceeded",
+                                ex
+                        );
+                    }
+
+                    sleepBeforeRetry(attempt);
+                    continue;
+                }
+
+                // Retry lỗi server 5xx
+                if (statusCode >= 500
+                        && statusCode < 600) {
+
+                    if (attempt == maxRetries) {
+                        throw ex;
+                    }
+
+                    sleepBeforeRetry(attempt);
+                    continue;
+                }
+
+                // 400, 401, 403... không retry
+                throw ex;
+
+            } catch (ResourceAccessException ex) {
+
+                // Timeout / network error
+                if (attempt == maxRetries) {
+                    throw new ProviderTimeoutException(
+                            "Gemini request timed out",
+                            ex
+                    );
+                }
+
+                sleepBeforeRetry(attempt);
+            }
+        }
+
+        throw new IllegalStateException(
+                "Gemini request failed"
+        );
+    }
+    private void sleepBeforeRetry(int attempt) {
+
+        try {
+
+            long delayMs = 1000L * attempt;
+
+            log.warn(
+                    "Retrying Gemini after {} ms, attempt={}",
+                    delayMs,
+                    attempt
+            );
+
+            Thread.sleep(delayMs);
+
+        } catch (InterruptedException ex) {
+
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    "Retry interrupted",
+                    ex
+            );
+        }
     }
 }

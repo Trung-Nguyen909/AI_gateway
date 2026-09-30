@@ -2,7 +2,9 @@
 
 AI Gateway API is a Spring Boot backend service that provides a centralized gateway for interacting with Large Language Model (LLM) providers.
 
-The system provides authentication, conversation management, AI provider integration, structured AI responses, request tracking, usage statistics, timeout handling, retry mechanisms, logging, and per-user rate limiting.
+The project was developed as a backend-focused AI Gateway, providing authentication, conversation management, AI provider integration, structured AI responses, request tracking, usage statistics, timeout handling, retry mechanisms, logging, and per-user rate limiting.
+
+---
 
 ## Features
 
@@ -11,20 +13,22 @@ The system provides authentication, conversation management, AI provider integra
 - MySQL database integration
 - Conversation management
 - Conversation ownership protection
-- Gemini LLM integration
+- Google Gemini integration
 - OpenAI provider support
 - Structured AI output
 - AI request tracking
 - Input/output token tracking
 - Request latency tracking
 - Usage statistics
-- Global error handling
+- Global exception handling
 - Request validation
 - Provider timeout handling
-- Automatic retry
+- Automatic retry mechanism
 - Provider rate-limit handling
 - Per-user Gateway rate limiting
 - Application logging
+
+---
 
 ## Tech Stack
 
@@ -35,71 +39,124 @@ The system provides authentication, conversation management, AI provider integra
 - OAuth2 Resource Server / JWT
 - Spring Data JPA
 - Hibernate
-- MySQL
+- MySQL 8
 - Maven
-- Gemini API
+- Google Gemini API
 - OpenAI API support
 - Postman
 
+---
+
 ## Architecture
 
-The application follows a layered architecture:
+The application follows a layered architecture.
 
-Client
+Main request flow:
 
-↓
-
-REST Controller
-
-↓
-
+```text
+Client / Postman
+       │
+       ▼
+Spring Security
+JWT Authentication
+       │
+       ▼
+REST Controllers
+       │
+       ▼
 Service Layer
-
-↓
-
-AI Gateway / LLM Provider
-
-↓
-
-Gemini API / OpenAI API
-
-The service layer also communicates with the persistence layer:
-
-Service
-
-↓
-
-Repository
-
-↓
-
+       │
+       ├──────────────► LLM Provider Layer
+       │                     │
+       │                     ├──► Google Gemini API
+       │                     │
+       │                     └──► OpenAI API
+       │
+       ▼
+Repository Layer
+       │
+       ▼
 Spring Data JPA / Hibernate
-
-↓
-
+       │
+       ▼
 MySQL
+```
 
-Detailed architecture diagram is included separately in the project documentation.
+The AI processing flow also includes:
+
+```text
+AI Request
+    │
+    ▼
+Rate Limiting
+    │
+    ▼
+LLM Provider
+    │
+    ├── Timeout Handling
+    ├── Retry Mechanism
+    └── Error Handling
+    │
+    ▼
+Usage Tracking
+    │
+    ├── Tokens
+    ├── Latency
+    └── Status
+```
+
+### System Architecture Diagram
+
+![System Architecture](docs/Architecture diagram.png)
+
+---
 
 ## Database
 
+The application uses MySQL.
+
 Database name:
 
-`ai_gateway_db`
+```text
+ai_gateway_db
+```
 
-Main tables:
+The database contains four main tables:
 
 - `users`
 - `conversations`
 - `messages`
 - `ai_requests`
 
-Main relationships:
+### Main Relationships
 
-- User 1:N Conversation
-- Conversation 1:N Message
-- User 1:N AIRequest
-- AIRequest optionally belongs to a Conversation
+```text
+User 1 ─────── N Conversation
+
+Conversation 1 ─────── N Message
+
+User 1 ─────── N AIRequest
+
+Conversation 1 ─────── 0..N AIRequest
+```
+
+`ai_requests.conversation_id` is nullable because not every AI request belongs to a conversation.
+
+For example:
+
+```text
+POST /api/v1/ai/chat
+→ AI request is associated with a conversation.
+
+POST /api/v1/ai/structured
+→ AI request does not require a conversation.
+```
+
+### Database Schema
+
+![Database Schema](docs/database-schema.png)
+
+### AI Request Tracking
 
 Each AI request records:
 
@@ -112,59 +169,146 @@ Each AI request records:
 - Status
 - Error code when applicable
 
-AI request statuses:
+Supported AI request statuses:
 
-- `SUCCESS`
-- `ERROR`
-- `TIMEOUT`
-- `RATE_LIMITED`
+```text
+SUCCESS
+ERROR
+TIMEOUT
+RATE_LIMITED
+```
 
-## Configuration
+---
 
-The application uses environment variables for secrets.
+## Project Structure
 
-Example configuration:
+The project follows a layered Spring Boot structure.
+
+```text
+ai-gateway/
+│
+├── docs/
+│   ├── architecture.png
+│   └── database-schema.png
+│
+├── src/
+│   ├── main/
+│   │   ├── java/com/baotrung/ai_gateway/
+│   │   │   ├── config/
+│   │   │   ├── controller/
+│   │   │   ├── dto/
+│   │   │   ├── entity/
+│   │   │   ├── exception/
+│   │   │   ├── provider/
+│   │   │   ├── repository/
+│   │   │   └── service/
+│   │   │
+│   │   └── resources/
+│   │       └── application.properties
+│   │
+│   └── test/
+│
+├── pom.xml
+├── README.md
+└── AI_WORKLOG.md
+```
+
+---
+
+# Configuration
+
+## Environment Variables
+
+Secrets such as API keys and database credentials should not be committed directly to the repository.
+
+The application supports environment variables such as:
+
+```text
+GEMINI_API_KEY
+OPENAI_API_KEY
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+```
+
+Example Spring configuration:
 
 ```properties
 spring.datasource.url=${DB_URL}
 spring.datasource.username=${DB_USERNAME}
 spring.datasource.password=${DB_PASSWORD}
 
-openai.api-key=${OPENAI_API_KEY:}
 gemini.api-key=${GEMINI_API_KEY:}
+openai.api-key=${OPENAI_API_KEY:}
 ```
 
-Do not commit real API keys or database passwords to Git.
+> Never commit real API keys or database passwords to Git.
 
-### Gemini Reliability Configuration
+---
+
+## Gemini Configuration
+
+Example:
 
 ```properties
+gemini.base-url=https://generativelanguage.googleapis.com
+gemini.api-key=${GEMINI_API_KEY:}
+gemini.model=gemini-3.5-flash-lite
+
 gemini.connect-timeout-ms=5000
 gemini.read-timeout-ms=30000
 gemini.max-retries=3
 ```
 
-### Gateway Rate Limiting
+---
+
+## Gateway Rate Limiting
+
+Default configuration:
 
 ```properties
 rate-limit.max-requests=10
 rate-limit.window-seconds=60
 ```
 
-The current rate limiter is an in-memory per-user sliding-window implementation intended for this demo/single-instance application.
+The current implementation uses an in-memory per-user sliding-window rate limiter.
 
-For a distributed production environment, a shared solution such as Redis should be used.
+Each authenticated user can make up to:
 
-## Running Locally
+```text
+10 AI requests / 60 seconds
+```
 
-### Requirements
+For a distributed production environment, a shared rate-limiting solution such as Redis could be used instead.
+
+---
+
+# Running Locally
+
+## Requirements
+
+Make sure the following software is installed:
 
 - Java 21
-- Maven
 - MySQL 8
-- Gemini API key
+- Maven or Maven Wrapper
+- Postman
+- A valid Gemini API key
 
-### 1. Create Database
+---
+
+## 1. Clone the Repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd ai-gateway
+```
+
+---
+
+## 2. Create MySQL Database
+
+Run:
 
 ```sql
 CREATE DATABASE ai_gateway_db
@@ -172,11 +316,11 @@ CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 2. Configure Database
+---
 
-Configure the datasource in `application.properties` or through environment variables.
+## 3. Configure Database Connection
 
-Local example:
+For local development:
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/ai_gateway_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
@@ -184,51 +328,65 @@ spring.datasource.username=root
 spring.datasource.password=YOUR_PASSWORD
 ```
 
-### 3. Configure Gemini API Key
+Hibernate is currently configured with:
 
-Set the environment variable:
+```properties
+spring.jpa.hibernate.ddl-auto=update
+```
+
+Hibernate will update the required tables based on the application's JPA entities.
+
+---
+
+## 4. Configure Gemini API Key
+
+Set:
 
 ```text
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 ```
 
-Never commit the real key to the repository.
+For IntelliJ IDEA, the environment variable can be configured in the application's Run Configuration.
 
-### 4. Run Application
+Do not store the real API key in the Git repository.
 
-Using Maven:
+---
 
-```bash
-./mvnw spring-boot:run
-```
+## 5. Run the Application
 
-On Windows:
+Using Maven Wrapper on Windows:
 
 ```bash
 mvnw.cmd spring-boot:run
 ```
 
-The API runs locally at:
+On Linux/macOS:
+
+```bash
+./mvnw spring-boot:run
+```
+
+Or run the Spring Boot application directly from IntelliJ IDEA.
+
+The local API is available at:
 
 ```text
 http://localhost:8080
 ```
 
-## Authentication
+---
 
-Protected endpoints require a JWT access token.
+# API Documentation
 
-Send the token using:
+Most API endpoints are protected by JWT authentication.
+
+Protected requests must include:
 
 ```http
 Authorization: Bearer <access_token>
 ```
 
-JWTs are generated after successful login.
-
 ---
-
-# API Documentation
 
 ## Authentication
 
@@ -249,13 +407,15 @@ Example request:
 }
 ```
 
+---
+
 ### Login
 
 ```http
 POST /api/v1/auth/login
 ```
 
-Authenticates a user and returns a JWT access token.
+Authenticates the user and returns a JWT access token.
 
 Example request:
 
@@ -276,17 +436,23 @@ Example response:
 }
 ```
 
+The returned token must be included in subsequent protected API requests.
+
 ---
 
 ## Conversations
 
-All conversation endpoints require authentication.
+Conversation endpoints require authentication.
 
 ### Create Conversation
 
 ```http
 POST /api/v1/conversations
 ```
+
+Creates a conversation for the authenticated user.
+
+---
 
 ### Get Conversations
 
@@ -296,25 +462,31 @@ GET /api/v1/conversations
 
 Returns conversations belonging to the authenticated user.
 
-### Get Conversation
+---
+
+### Get Conversation by ID
 
 ```http
 GET /api/v1/conversations/{id}
 ```
 
-Users can only access conversations that belong to their own account.
+Returns a specific conversation.
+
+Conversation ownership is enforced. A user cannot access another user's conversation.
 
 ---
 
-## AI Chat
+# AI Chat
+
+### Send AI Chat Request
 
 ```http
 POST /api/v1/ai/chat
 ```
 
-Requires authentication.
+Requires JWT authentication.
 
-Example:
+Example request:
 
 ```json
 {
@@ -338,17 +510,27 @@ Example response:
 }
 ```
 
-The Gateway stores both user and assistant messages and records AI usage information.
+The Gateway:
+
+1. Authenticates the user.
+2. Verifies conversation ownership.
+3. Loads previous conversation messages.
+4. Sends the request to the selected LLM provider.
+5. Stores the user and assistant messages.
+6. Records usage information in `ai_requests`.
+7. Returns the AI response.
 
 ---
 
-## Structured AI Output
+# Structured AI Output
+
+### Generate Structured Response
 
 ```http
 POST /api/v1/ai/structured
 ```
 
-Requires authentication.
+Requires JWT authentication.
 
 Example request:
 
@@ -372,21 +554,35 @@ Example response:
 }
 ```
 
-The AI response is parsed into a predefined Java response structure before being returned to the client.
+The LLM is instructed to return JSON in a predefined structure.
+
+The response is then parsed into a Java DTO before being returned to the client.
+
+Structured AI requests are also recorded in `ai_requests`.
+
+Because this endpoint does not require a conversation:
+
+```text
+conversation_id = NULL
+```
+
+is valid for these request records.
 
 ---
 
-## Usage Statistics
+# Usage Statistics
+
+### Get Usage Statistics
 
 ```http
 GET /api/v1/usage
 ```
 
-Requires authentication.
+Requires JWT authentication.
 
-Returns usage statistics for the authenticated user only.
+Returns usage statistics belonging to the authenticated user.
 
-Example:
+Example response:
 
 ```json
 {
@@ -399,11 +595,91 @@ Example:
 }
 ```
 
+Statistics include:
+
+- Total AI requests
+- Total input tokens
+- Total output tokens
+- Total tokens
+- Average latency
+- Error rate
+
+Usage data is calculated from the AI request records belonging to the authenticated user.
+
 ---
 
-## Error Responses
+# Reliability
 
-Errors use a consistent JSON structure.
+## Timeout Handling
+
+Gemini requests have separate connection and read timeouts.
+
+Default configuration:
+
+```text
+Connection timeout: 5 seconds
+Read timeout:       30 seconds
+```
+
+A provider timeout is recorded as:
+
+```text
+TIMEOUT
+```
+
+---
+
+## Retry Mechanism
+
+Temporary provider failures can be retried automatically.
+
+Current maximum:
+
+```text
+3 attempts
+```
+
+Retry is used for temporary conditions such as:
+
+- Provider HTTP 429 responses
+- Provider 5xx errors
+- Network/resource access failures
+
+---
+
+## Provider Rate Limiting
+
+If the external AI provider returns HTTP `429`, the Gateway retries the request according to the configured retry policy.
+
+If the request still fails because of provider rate limiting, the request is recorded as:
+
+```text
+RATE_LIMITED
+```
+
+---
+
+## Gateway Rate Limiting
+
+The application also provides its own per-user rate limiting before sending requests to the AI provider.
+
+Default:
+
+```text
+10 requests / 60 seconds / user
+```
+
+When the limit is exceeded, the API returns:
+
+```http
+HTTP 429 Too Many Requests
+```
+
+---
+
+# Error Handling
+
+The application uses centralized exception handling to provide consistent API error responses.
 
 Example:
 
@@ -417,116 +693,127 @@ Example:
 }
 ```
 
-Common HTTP statuses:
+Common HTTP status codes:
 
-| Status | Meaning |
+| Status | Description |
 |---|---|
-| 400 | Invalid request / validation error |
-| 401 | Authentication required or invalid token |
-| 404 | Resource not found or inaccessible |
-| 429 | Gateway rate limit exceeded |
-| 500 | Unexpected server error |
+| `400` | Invalid request or validation error |
+| `401` | Authentication required or invalid token |
+| `404` | Resource not found or inaccessible |
+| `429` | Gateway rate limit exceeded |
+| `500` | Unexpected server error |
 
-## Reliability
+---
 
-### Timeout
+# AI Request Tracking
 
-Requests to the Gemini provider have configured connection and read timeouts.
+AI requests are stored in the `ai_requests` table.
 
-### Retry
-
-Temporary provider failures are retried up to a configured maximum number of attempts.
-
-The current configuration uses:
-
-```text
-3 attempts maximum
-```
-
-### Provider Rate Limit
-
-Provider HTTP `429` responses are detected and recorded using:
-
-```text
-RATE_LIMITED
-```
-
-### Gateway Rate Limit
-
-The Gateway limits the number of AI requests each authenticated user can make within a configured time window.
-
-Default:
-
-```text
-10 requests / 60 seconds / user
-```
-
-When exceeded:
-
-```http
-HTTP 429 Too Many Requests
-```
-
-## Usage Tracking
-
-Every AI request handled by the AI endpoints records:
+Tracked information includes:
 
 ```text
 user
+request ID
 model
 timestamp
 latency
 input tokens
 output tokens
 status
+error code
+conversation (optional)
 ```
 
-Successful requests use:
+Possible statuses:
 
-```text
-SUCCESS
-```
+| Status | Description |
+|---|---|
+| `SUCCESS` | AI request completed successfully |
+| `ERROR` | Request failed because of another error |
+| `TIMEOUT` | AI provider request timed out |
+| `RATE_LIMITED` | AI provider rate limit was reached |
 
-Provider timeout:
+This information is used to calculate user usage statistics.
 
-```text
-TIMEOUT
-```
+---
 
-Provider rate limit:
+# Logging
 
-```text
-RATE_LIMITED
-```
+The application uses SLF4J-based application logging.
 
-Other provider/application failures:
+Logs include information such as:
 
-```text
-ERROR
-```
+- Provider calls
+- Model being used
+- Retry attempts
+- Retry delays
+- Application errors
 
-## Security
+Sensitive information such as API keys is not intentionally written to application logs.
 
-- Passwords are stored using BCrypt hashing.
-- Protected endpoints require JWT authentication.
-- Conversation queries are scoped to the authenticated user.
+---
+
+# Security
+
+The project implements the following security measures:
+
+- Passwords are hashed using BCrypt.
+- JWT authentication is used for protected endpoints.
+- Authentication is stateless.
+- Conversation access is scoped to the authenticated user.
+- AI usage statistics are scoped to the authenticated user.
 - API keys are loaded through environment variables.
-- API keys are never included in application logs.
-- The application uses stateless authentication.
+- API keys are not intentionally included in application logs.
+- Request validation is performed before processing invalid input.
 
-## Development Notes
+---
 
-Hibernate is currently configured with:
+# Multi-Provider Design
+
+The application defines a common LLM provider abstraction.
+
+```text
+LLMProvider
+    │
+    ├── GeminiProvider
+    │
+    └── OpenAIProvider
+```
+
+This design allows additional AI providers to be integrated without changing the main AI Gateway API contract.
+
+Google Gemini is currently used as the primary working provider.
+
+OpenAI provider integration is also implemented, but successful requests require an OpenAI account/API key with available API credits.
+
+---
+
+# Development Notes
+
+Hibernate currently uses:
 
 ```properties
 spring.jpa.hibernate.ddl-auto=update
 ```
 
-This is convenient for development and demonstration.
+This configuration is convenient for development and demonstration because Hibernate can update the schema based on JPA entities without recreating the entire database on every application start.
 
-For a production system, database schema changes should preferably be managed using a migration tool such as Flyway or Liquibase.
+For a production system, schema changes should preferably be managed through database migration tools such as:
 
-## Deployment
+- Flyway
+- Liquibase
+
+A production environment could also use:
+
+```properties
+spring.jpa.hibernate.ddl-auto=validate
+```
+
+after database migrations are managed separately.
+
+---
+
+# Deployment
 
 Production API:
 
@@ -534,29 +821,86 @@ Production API:
 TO_BE_ADDED_AFTER_DEPLOYMENT
 ```
 
-Deployment configuration uses environment variables for database credentials and API keys.
+Production deployment should configure the following values through environment variables:
 
-## Project Deliverables
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+GEMINI_API_KEY
+OPENAI_API_KEY
+```
 
-This repository contains or will include:
+The deployed backend should not depend on the developer machine's local MySQL instance.
 
-- Source code
+---
+
+# API Testing
+
+The API can be tested using Postman.
+
+The recommended test flow is:
+
+```text
+Register
+   ↓
+Login
+   ↓
+Get JWT
+   ↓
+Create Conversation
+   ↓
+AI Chat
+   ↓
+Structured AI
+   ↓
+Usage Statistics
+```
+
+A Postman collection is provided separately with the project.
+
+---
+
+# Project Deliverables
+
+The project includes:
+
+- Backend source code
 - API documentation
 - Architecture diagram
 - Database schema
 - Postman API examples
-- Deployment instructions
+- Deployment configuration/instructions
 - AI development worklog
 - Demo video
 
-## Future Improvements
+---
 
-Possible production improvements include:
+# Future Improvements
+
+Possible improvements for a production-ready version include:
 
 - Redis-based distributed rate limiting
-- Provider fallback and automatic model routing
+- Automatic provider fallback
+- Dynamic model routing
 - Response caching
-- Cost estimation
+- AI cost estimation
 - Metrics and observability
-- Database migrations with Flyway/Liquibase
+- Flyway or Liquibase database migrations
 - Queue-based asynchronous AI processing
+- Distributed request tracing
+- More comprehensive automated testing
+
+---
+
+# Author
+
+**Nguyen Bao Trung**
+
+Backend Developer Candidate
+
+---
+
+## License
+
+This project was developed as part of an AI Builder / Backend Developer technical challenge.

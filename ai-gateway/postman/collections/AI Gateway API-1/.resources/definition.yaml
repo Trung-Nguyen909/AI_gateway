@@ -1,6 +1,12 @@
 $kind: collection
 name: AI Gateway API
 variables:
-  base_url: ""
-  access_token: ""
-  conversation_id: ""
+  - key: base_url
+    value: ""
+    disabled: false
+  - key: access_token
+    secret: true
+    disabled: false
+  - key: conversation_id
+    value: ""
+    disabled: false

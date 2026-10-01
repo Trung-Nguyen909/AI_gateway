@@ -4,6 +4,12 @@ AI Gateway API is a Spring Boot backend service that provides a centralized gate
 
 The project was developed as a backend-focused AI Gateway, providing authentication, conversation management, AI provider integration, structured AI responses, request tracking, usage statistics, timeout handling, retry mechanisms, logging, and per-user rate limiting.
 
+**Production API:**
+
+```text
+https://aigateway-production-388a.up.railway.app
+```
+
 ---
 
 ## Features
@@ -27,6 +33,7 @@ The project was developed as a backend-focused AI Gateway, providing authenticat
 - Provider rate-limit handling
 - Per-user Gateway rate limiting
 - Application logging
+- Production deployment on Railway
 
 ---
 
@@ -44,10 +51,11 @@ The project was developed as a backend-focused AI Gateway, providing authenticat
 - Google Gemini API
 - OpenAI API support
 - Postman
+- Railway
 
 ---
 
-## Architecture
+# Architecture
 
 The application follows a layered architecture.
 
@@ -105,21 +113,23 @@ Usage Tracking
     └── Status
 ```
 
-### System Architecture Diagram
+## System Architecture Diagram
 
-![System Architecture](docs/Architecture diagram.png)
+![System Architecture](docs/Architecture%20diagram.png)
 
 ---
 
-## Database
+# Database
 
-The application uses MySQL.
+The application uses MySQL for persistence.
 
-Database name:
+For local development, the database is:
 
 ```text
 ai_gateway_db
 ```
+
+The production environment uses a Railway-hosted MySQL database.
 
 The database contains four main tables:
 
@@ -128,7 +138,7 @@ The database contains four main tables:
 - `messages`
 - `ai_requests`
 
-### Main Relationships
+## Main Relationships
 
 ```text
 User 1 ─────── N Conversation
@@ -152,15 +162,16 @@ POST /api/v1/ai/structured
 → AI request does not require a conversation.
 ```
 
-### Database Schema
+## Database Schema
 
 ![Database Schema](docs/database-schema.png)
 
-### AI Request Tracking
+## AI Request Tracking
 
 Each AI request records:
 
 - User
+- Request ID
 - Model
 - Timestamp
 - Latency
@@ -168,6 +179,7 @@ Each AI request records:
 - Output tokens
 - Status
 - Error code when applicable
+- Conversation when applicable
 
 Supported AI request statuses:
 
@@ -180,16 +192,15 @@ RATE_LIMITED
 
 ---
 
-## Project Structure
-
-The project follows a layered Spring Boot structure.
+# Project Structure
 
 ```text
 ai-gateway/
 │
 ├── docs/
-│   ├── architecture.png
-│   └── database-schema.png
+│   ├── Architecture diagram.png
+│   ├── database-schema.png
+│   └── API_EXAMPLES.md
 │
 ├── src/
 │   ├── main/
@@ -219,36 +230,42 @@ ai-gateway/
 
 ## Environment Variables
 
-Secrets such as API keys and database credentials should not be committed directly to the repository.
+Sensitive configuration such as API keys, JWT secrets, and database credentials must not be committed directly to the repository.
 
-The application supports environment variables such as:
+The application supports the following environment variables:
 
 ```text
-GEMINI_API_KEY
-OPENAI_API_KEY
 DB_URL
 DB_USERNAME
 DB_PASSWORD
+JWT_SECRET
+GEMINI_API_KEY
+OPENAI_API_KEY
+PORT
 ```
+
+`OPENAI_API_KEY` is optional when Google Gemini is used as the primary provider.
 
 Example Spring configuration:
 
 ```properties
-spring.datasource.url=${DB_URL}
-spring.datasource.username=${DB_USERNAME}
+spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/ai_gateway_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true}
+spring.datasource.username=${DB_USERNAME:root}
 spring.datasource.password=${DB_PASSWORD}
+
+server.port=${PORT:8080}
+
+jwt.secret=${JWT_SECRET}
 
 gemini.api-key=${GEMINI_API_KEY:}
 openai.api-key=${OPENAI_API_KEY:}
 ```
 
-> Never commit real API keys or database passwords to Git.
+> Never commit real API keys, JWT secrets, or database passwords to Git.
 
 ---
 
 ## Gemini Configuration
-
-Example:
 
 ```properties
 gemini.base-url=https://generativelanguage.googleapis.com
@@ -259,6 +276,8 @@ gemini.connect-timeout-ms=5000
 gemini.read-timeout-ms=30000
 gemini.max-retries=3
 ```
+
+Google Gemini is currently used as the primary working AI provider.
 
 ---
 
@@ -300,15 +319,13 @@ Make sure the following software is installed:
 ## 1. Clone the Repository
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd ai-gateway
+git clone https://github.com/Trung-Nguyen909/AI_gateway.git
+cd AI_gateway/ai-gateway
 ```
 
 ---
 
 ## 2. Create MySQL Database
-
-Run:
 
 ```sql
 CREATE DATABASE ai_gateway_db
@@ -318,41 +335,53 @@ COLLATE utf8mb4_unicode_ci;
 
 ---
 
-## 3. Configure Database Connection
+## 3. Configure Local Environment Variables
 
-For local development:
+The application uses environment variables for sensitive configuration.
 
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/ai_gateway_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
-spring.datasource.username=root
-spring.datasource.password=YOUR_PASSWORD
+Configure:
+
+```text
+DB_PASSWORD=<your-local-mysql-password>
+JWT_SECRET=<your-local-jwt-secret>
+GEMINI_API_KEY=<your-gemini-api-key>
 ```
 
-Hibernate is currently configured with:
+Optional:
+
+```text
+OPENAI_API_KEY=<your-openai-api-key>
+```
+
+For IntelliJ IDEA, these variables can be configured in:
+
+```text
+Run
+→ Edit Configurations
+→ AiGatewayApplication
+→ Environment variables
+```
+
+The local database configuration defaults to:
+
+```text
+Host:     localhost
+Port:     3306
+Database: ai_gateway_db
+Username: root
+```
+
+Hibernate is configured with:
 
 ```properties
 spring.jpa.hibernate.ddl-auto=update
 ```
 
-Hibernate will update the required tables based on the application's JPA entities.
+Hibernate updates the required tables based on the application's JPA entities.
 
 ---
 
-## 4. Configure Gemini API Key
-
-Set:
-
-```text
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-```
-
-For IntelliJ IDEA, the environment variable can be configured in the application's Run Configuration.
-
-Do not store the real API key in the Git repository.
-
----
-
-## 5. Run the Application
+## 4. Run the Application
 
 Using Maven Wrapper on Windows:
 
@@ -366,7 +395,7 @@ On Linux/macOS:
 ./mvnw spring-boot:run
 ```
 
-Or run the Spring Boot application directly from IntelliJ IDEA.
+The application can also be run directly from IntelliJ IDEA.
 
 The local API is available at:
 
@@ -450,6 +479,14 @@ Conversation endpoints require authentication.
 POST /api/v1/conversations
 ```
 
+Example request:
+
+```json
+{
+  "title": "Spring Boot Learning"
+}
+```
+
 Creates a conversation for the authenticated user.
 
 ---
@@ -478,7 +515,7 @@ Conversation ownership is enforced. A user cannot access another user's conversa
 
 # AI Chat
 
-### Send AI Chat Request
+## Send AI Chat Request
 
 ```http
 POST /api/v1/ai/chat
@@ -524,7 +561,7 @@ The Gateway:
 
 # Structured AI Output
 
-### Generate Structured Response
+## Generate Structured Response
 
 ```http
 POST /api/v1/ai/structured
@@ -556,7 +593,7 @@ Example response:
 
 The LLM is instructed to return JSON in a predefined structure.
 
-The response is then parsed into a Java DTO before being returned to the client.
+The response is parsed into a Java DTO before being returned to the client.
 
 Structured AI requests are also recorded in `ai_requests`.
 
@@ -572,7 +609,7 @@ is valid for these request records.
 
 # Usage Statistics
 
-### Get Usage Statistics
+## Get Usage Statistics
 
 ```http
 GET /api/v1/usage
@@ -604,7 +641,7 @@ Statistics include:
 - Average latency
 - Error rate
 
-Usage data is calculated from the AI request records belonging to the authenticated user.
+Usage data is calculated from AI request records belonging to the authenticated user.
 
 ---
 
@@ -661,7 +698,7 @@ RATE_LIMITED
 
 ## Gateway Rate Limiting
 
-The application also provides its own per-user rate limiting before sending requests to the AI provider.
+The application also provides per-user rate limiting before sending requests to the AI provider.
 
 Default:
 
@@ -674,6 +711,8 @@ When the limit is exceeded, the API returns:
 ```http
 HTTP 429 Too Many Requests
 ```
+
+The current rate limiter is stored in application memory and is intended for a single application instance.
 
 ---
 
@@ -729,7 +768,7 @@ Possible statuses:
 | Status | Description |
 |---|---|
 | `SUCCESS` | AI request completed successfully |
-| `ERROR` | Request failed because of another error |
+| `ERROR` | AI request failed because of another error |
 | `TIMEOUT` | AI provider request timed out |
 | `RATE_LIMITED` | AI provider rate limit was reached |
 
@@ -762,7 +801,8 @@ The project implements the following security measures:
 - Authentication is stateless.
 - Conversation access is scoped to the authenticated user.
 - AI usage statistics are scoped to the authenticated user.
-- API keys are loaded through environment variables.
+- API keys and credentials are loaded through environment variables.
+- Sensitive credentials are not committed to the repository.
 - API keys are not intentionally included in application logs.
 - Request validation is performed before processing invalid input.
 
@@ -798,12 +838,12 @@ spring.jpa.hibernate.ddl-auto=update
 
 This configuration is convenient for development and demonstration because Hibernate can update the schema based on JPA entities without recreating the entire database on every application start.
 
-For a production system, schema changes should preferably be managed through database migration tools such as:
+For a larger production system, schema changes should preferably be managed through database migration tools such as:
 
 - Flyway
 - Liquibase
 
-A production environment could also use:
+A production environment could then use:
 
 ```properties
 spring.jpa.hibernate.ddl-auto=validate
@@ -811,27 +851,79 @@ spring.jpa.hibernate.ddl-auto=validate
 
 after database migrations are managed separately.
 
+The current Gateway rate limiter is also in memory. A distributed deployment with multiple application instances would require a shared rate-limiting store such as Redis.
+
 ---
 
 # Deployment
 
-Production API:
+The AI Gateway is deployed on Railway.
+
+## Production API
 
 ```text
-TO_BE_ADDED_AFTER_DEPLOYMENT
+https://aigateway-production-388a.up.railway.app
 ```
 
-Production deployment should configure the following values through environment variables:
+The production environment uses:
+
+- **Railway** for Spring Boot application deployment
+- **Railway MySQL** for database persistence
+- **Google Gemini** as the primary AI provider
+- **GitHub** as the deployment source
+- **Environment variables** for sensitive configuration
+
+The GitHub repository contains the Spring Boot application inside the `ai-gateway` directory, which is configured as the application root directory for the Railway service.
+
+The production database is independent from the local development MySQL database.
+
+The Spring Boot service connects to Railway MySQL through environment variables and Railway service references.
+
+Production configuration includes:
 
 ```text
 DB_URL
 DB_USERNAME
 DB_PASSWORD
+JWT_SECRET
 GEMINI_API_KEY
-OPENAI_API_KEY
 ```
 
-The deployed backend should not depend on the developer machine's local MySQL instance.
+`OPENAI_API_KEY` can optionally be configured when OpenAI API access is available.
+
+Sensitive values such as database credentials, JWT secrets, and API keys are stored as Railway environment variables and are not committed to GitHub.
+
+## Production Endpoints
+
+Authentication:
+
+```text
+POST https://aigateway-production-388a.up.railway.app/api/v1/auth/register
+POST https://aigateway-production-388a.up.railway.app/api/v1/auth/login
+```
+
+Conversations:
+
+```text
+POST https://aigateway-production-388a.up.railway.app/api/v1/conversations
+GET  https://aigateway-production-388a.up.railway.app/api/v1/conversations
+GET  https://aigateway-production-388a.up.railway.app/api/v1/conversations/{id}
+```
+
+AI:
+
+```text
+POST https://aigateway-production-388a.up.railway.app/api/v1/ai/chat
+POST https://aigateway-production-388a.up.railway.app/api/v1/ai/structured
+```
+
+Usage:
+
+```text
+GET https://aigateway-production-388a.up.railway.app/api/v1/usage
+```
+
+The production API was verified using Postman after deployment.
 
 ---
 
@@ -839,11 +931,21 @@ The deployed backend should not depend on the developer machine's local MySQL in
 
 The API can be tested using Postman or another REST API client.
 
-For local development, the base URL is:
+## Base URLs
+
+Local development:
 
 ```text
 http://localhost:8080
 ```
+
+Production:
+
+```text
+https://aigateway-production-388a.up.railway.app
+```
+
+In Postman, the `base_url` collection variable can be switched between the local and production URLs.
 
 Protected endpoints require a JWT access token:
 
@@ -852,8 +954,6 @@ Authorization: Bearer <access_token>
 ```
 
 ## Recommended Test Flow
-
-The recommended API testing flow is:
 
 ```text
 Register
@@ -875,41 +975,43 @@ Structured AI
 Get Usage Statistics
 ```
 
-In Postman, the following collection variables can be used to simplify testing:
+Suggested Postman collection variables:
 
 ```text
-base_url        = http://localhost:8080
+base_url        = Local or production API base URL
 access_token    = JWT returned from Login
 conversation_id = ID returned from Create Conversation
 ```
 
-For example:
+Example request URL:
 
 ```text
 {{base_url}}/api/v1/ai/chat
 ```
 
-The JWT can be used as a Bearer Token:
+Bearer token:
 
 ```text
 {{access_token}}
 ```
 
-The conversation ID can be reused in AI Chat requests:
+Example AI Chat body:
 
 ```json
 {
-  "conversationId": {{conversation_id}},
+  "conversationId": 1,
   "message": "Explain Dependency Injection in Spring Boot.",
   "model": "gemini-3.5-flash-lite"
 }
 ```
 
+When using the Postman collection, the example conversation ID can be replaced with the `{{conversation_id}}` collection variable.
+
 Detailed request and response examples for Authentication, Conversations, AI Chat, Structured AI, Usage Statistics, validation, rate limiting, and timeout handling are available here:
 
 [View API Request & Response Examples](docs/API_EXAMPLES.md)
 
-> Note: JWT tokens, API keys, and database passwords should never be committed to the repository.
+> JWT tokens, API keys, JWT secrets, and database passwords must never be committed to the repository.
 
 ---
 
@@ -918,13 +1020,13 @@ Detailed request and response examples for Authentication, Conversations, AI Cha
 The project deliverables include:
 
 - **Backend Source Code** — Complete Spring Boot source code for the AI Gateway.
-- **API Documentation** — API endpoints, authentication, request formats, and usage instructions are documented in this README.
+- **API Documentation** — API endpoints, authentication, request formats, deployment, and usage instructions are documented in this README.
 - **API Request & Response Examples** — Detailed testing examples are available in [API Examples](docs/API_EXAMPLES.md).
-- **Architecture Diagram** — System architecture is documented in [Architecture Diagram](docs/Architecture diagram.png).
+- **Architecture Diagram** — System architecture is documented in [Architecture Diagram](docs/Architecture%20diagram.png).
 - **Database Schema** — Database structure and relationships are documented in [Database Schema](docs/database-schema.png).
 - **AI Development Worklog** — The AI-assisted development process, implementation decisions, debugging, and verification are documented in [AI Development Worklog](AI_WORKLOG.md).
-- **Deployment** — Deployment configuration and public API URL will be added after deployment is completed.
-- **Demo Video** — A short demonstration video will be added after final deployment and testing.
+- **Deployment** — The AI Gateway is deployed on Railway and accessible through the production API URL provided in the Deployment section.
+- **Demo Video** — A short demonstration video will be provided separately with the final submission.
 
 ---
 

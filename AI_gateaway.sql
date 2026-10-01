@@ -101,3 +101,10 @@ SELECT
     error_code
 FROM ai_requests
 ORDER BY id DESC;
+DESCRIBE users;
+
+DESCRIBE conversations;
+
+DESCRIBE messages;
+
+DESCRIBE ai_requests;
